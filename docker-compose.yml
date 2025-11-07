@@ -1,91 +1,125 @@
-version: '3.8'
-
 services:
-  # 1. PostgreSQL Source Database (Source 1)
+  # 1️ PostgreSQL Source Database (Raw Data)
   postgres_source:
     image: postgres:14
-    ports:
-      - "5432:5432"
+    container_name: postgres_source
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
       POSTGRES_DB: source_db
+    ports:
+      - "5432:5432"
     volumes:
       - ./sql_scripts:/docker-entrypoint-initdb.d
     networks:
       - data-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d source_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # 2. MongoDB Source Database (Source 2)
+  # 2️ MongoDB Source Database
   mongo_source:
     image: mongo:latest
-    ports:
-      - "27017:27017"
+    container_name: mongo_source
     environment:
       MONGO_INITDB_ROOT_USERNAME: user
       MONGO_INITDB_ROOT_PASSWORD: password
+    ports:
+      - "27017:27017"
     networks:
       - data-net
 
-  # 3. Data Warehouse (Destination) - Uses Postgres
+  # 3️ PostgreSQL Data Warehouse (Destination)
   data_warehouse:
     image: postgres:14
-    ports:
-      - "5433:5432"
+    container_name: data_warehouse
     environment:
       POSTGRES_USER: warehouse_user
       POSTGRES_PASSWORD: warehouse_password
       POSTGRES_DB: analytics_warehouse
+    ports:
+      - "5433:5432"
     networks:
       - data-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U warehouse_user -d analytics_warehouse"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # 4. Apache Airflow Webserver and Scheduler (Orchestration)
+  # 4️ Airflow PostgreSQL Metadata DB
+  airflow_postgres:
+    image: postgres:14
+    container_name: airflow_postgres
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    ports:
+      - "5434:5432"
+    networks:
+      - data-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 5️ Apache Airflow Webserver
   airflow-webserver:
-    image: apache/airflow:2.8.1-python3.10
-    command: webserver
+    image: apache/airflow:2.9.0
+    container_name: airflow_webserver
+    restart: always
+    depends_on:
+      airflow_postgres:
+        condition: service_healthy
+      postgres_source:
+        condition: service_healthy
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow_postgres:5432/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__FERNET_KEY: temporary_secret_key
+      AIRFLOW__WEBSERVER__RBAC: "True"
+      AIRFLOW_CONN_SOURCE_PG: postgresql+psycopg2://user:password@postgres_source:5432/source_db
+      AIRFLOW_CONN_SOURCE_MONGO: mongodb://user:password@mongo_source:27017/
+      AIRFLOW_CONN_WAREHOUSE_PG: postgresql+psycopg2://warehouse_user:warehouse_password@data_warehouse:5432/analytics_warehouse
+    volumes:
+      - ./dags:/opt/airflow/dags
     ports:
       - "8080:8080"
-    environment:
-      AIRFLOW_CFG_SQL_ALCHEMY_CONN: postgresql://airflow:airflow@postgres_source/airflow
-      AIRFLOW_WEBSERVER_HOST: 0.0.0.0
-      AIRFLOW_WEBSERVER_PORT: 8080
-      AIRFLOW_CONN_SOURCE_PG: postgresql://user:password@postgres_source:5432/source_db
-      AIRFLOW_CONN_SOURCE_MONGO: mongodb://user:password@mongo_source:27017/
-      AIRFLOW_CONN_WAREHOUSE_PG: postgresql://warehouse_user:warehouse_password@data_warehouse:5432/analytics_warehouse
-    volumes:
-      - ./dags:/opt/airflow/dags
+    command: webserver
     networks:
       - data-net
-    depends_on:
-      postgres_source:
-        condition: service_healthy
-  
+
+  # 6️ Apache Airflow Scheduler
   airflow-scheduler:
-    image: apache/airflow:2.8.1-python3.10
-    command: scheduler
+    image: apache/airflow:2.9.0
+    container_name: airflow_scheduler
+    restart: always
+    depends_on:
+      airflow_postgres:
+        condition: service_healthy
     environment:
-      AIRFLOW_CFG_SQL_ALCHEMY_CONN: postgresql://airflow:airflow@postgres_source/airflow
-      AIRFLOW_CONN_SOURCE_PG: postgresql://user:password@postgres_source:5432/source_db
-      AIRFLOW_CONN_SOURCE_MONGO: mongodb://user:password@mongo_source:27017/
-      AIRFLOW_CONN_WAREHOUSE_PG: postgresql://warehouse_user:warehouse_password@data_warehouse:5432/analytics_warehouse
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow_postgres:5432/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__FERNET_KEY: temporary_secret_key
     volumes:
       - ./dags:/opt/airflow/dags
+    command: scheduler
     networks:
       - data-net
-    depends_on:
-      postgres_source:
-        condition: service_healthy
 
-
-  # 5. DBT CLI Container (Transformation layer)
+  # 7️ DBT CLI Container (Transformation)
   dbt-cli:
     image: ghcr.io/dbt-labs/dbt-postgres:1.7.latest
+    container_name: dbt_cli
     volumes:
       - ./dbt:/usr/app/dbt
-      - ./dags:/usr/app/dags # share DAGs for potential metadata use
     networks:
       - data-net
-    command: /bin/bash -c "sleep infinity" # Keeps the container running for manual use
-
+    command: tail -f /dev/null  # Keeps the container alive for manual dbt runs
 
 networks:
   data-net:
