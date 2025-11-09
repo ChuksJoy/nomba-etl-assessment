@@ -1,0 +1,67 @@
+version: 2
+
+models:
+  - name: savings_summary
+    description: "Summary of total plans and amounts by product type"
+    columns:
+      - name: product_type
+        tests:
+          - not_null
+      - name: total_plans
+        tests:
+          - not_null
+      - name: total_amount
+        tests:
+          - not_null
+
+  - name: total_plans_by_product
+    description: "Aggregated number of plans and total amount per product type"
+    columns:
+      - name: product_type
+        tests:
+          - not_null
+      - name: total_plans
+        tests:
+          - not_null
+      - name: total_amount
+        tests:
+          - not_null
+
+  - name: total_transactions_by_plan
+    description: "Total transactions and amounts per plan"
+    columns:
+      - name: plan_id
+        tests:
+          - not_null
+          - unique
+      - name: product_type
+        tests:
+          - not_null
+      - name: total_transactions
+        tests:
+          - not_null
+      - name: total_amount
+        tests:
+          - not_null
+      - name: total_credit
+        tests:
+          - not_null
+      - name: total_debit
+        tests:
+          - not_null
+
+  - name: active_plan_summary
+    description: "Summary of active plans by product type"
+    columns:
+      - name: product_type
+        tests:
+          - not_null
+      - name: active_plans
+        tests:
+          - not_null
+      - name: total_amount
+        tests:
+          - not_null
+      - name: avg_amount
+        tests:
+          - not_null

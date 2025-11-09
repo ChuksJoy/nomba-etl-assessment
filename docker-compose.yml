@@ -113,13 +113,14 @@ services:
 
   # 7️ DBT CLI Container (Transformation)
   dbt-cli:
-    image: ghcr.io/dbt-labs/dbt-postgres:1.7.latest
-    container_name: dbt_cli
+    image: ghcr.io/dbt-labs/dbt-postgres:1.7.7
+    container_name: dbt-cli
     volumes:
       - ./dbt:/usr/app/dbt
+      - ./dbt/profiles:/root/.dbt
     networks:
       - data-net
-    command: tail -f /dev/null  # Keeps the container alive for manual dbt runs
+    command: sleep infinity
 
 networks:
   data-net:

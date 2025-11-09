@@ -1,0 +1,13 @@
+nomba_project:
+  outputs:
+    dev:
+      type: postgres
+      host: localhost
+      user: warehouse_user
+      password: warehouse_password
+      port: 5433
+      dbname: analytics_warehouse
+      schema: analytics
+      threads: 1
+      keepalives_idle: 0
+  target: dev

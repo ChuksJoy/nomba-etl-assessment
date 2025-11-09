@@ -1,0 +1,12 @@
+version: 2
+
+sources:
+  - name: analytics
+    description: "Source schema for the analytics warehouse"
+    tables:
+      - name: savings_plan
+        description: "Customer savings plans"
+      - name: savings_transaction
+        description: "Transactions for customer savings plans"
+      - name: user
+        description: "Customer user data from MongoDB"
