@@ -68,8 +68,10 @@ services:
       retries: 5
 
   # 5️ Apache Airflow Webserver
-  airflow-webserver:
-    image: apache/airflow:2.9.0
+  airflow_webserver:
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
     container_name: airflow_webserver
     restart: always
     depends_on:
@@ -80,7 +82,7 @@ services:
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow_postgres:5432/airflow
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__CORE__FERNET_KEY: temporary_secret_key
+      AIRFLOW__CORE__FERNET_KEY: OpbtPx5AEmZ6OT1O0BGk--JRN_suNfaePx2PyvRoDlY=
       AIRFLOW__WEBSERVER__RBAC: "True"
       AIRFLOW_CONN_SOURCE_PG: postgresql+psycopg2://user:password@postgres_source:5432/source_db
       AIRFLOW_CONN_SOURCE_MONGO: mongodb://user:password@mongo_source:27017/
@@ -94,8 +96,10 @@ services:
       - data-net
 
   # 6️ Apache Airflow Scheduler
-  airflow-scheduler:
-    image: apache/airflow:2.9.0
+  airflow_scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
     container_name: airflow_scheduler
     restart: always
     depends_on:
@@ -104,7 +108,7 @@ services:
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow_postgres:5432/airflow
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__CORE__FERNET_KEY: temporary_secret_key
+      AIRFLOW__CORE__FERNET_KEY: OpbtPx5AEmZ6OT1O0BGk--JRN_suNfaePx2PyvRoDlY=
     volumes:
       - ./dags:/opt/airflow/dags
     command: scheduler
